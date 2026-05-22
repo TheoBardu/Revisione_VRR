@@ -25,7 +25,7 @@ REVISIONE_NUMERO = 3
 
 # Data delle misure (stringa libera, esempio: "21-lug-25")
 DATA_MISURE = "21-mag-26"
-
+STRATEGIA = "Compito"
 # -----------------------------------------------------------------------------
 # Nomi file output
 # -----------------------------------------------------------------------------

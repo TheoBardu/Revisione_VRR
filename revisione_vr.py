@@ -23,6 +23,7 @@ from openpyxl.utils import column_index_from_string, get_column_letter
 
 import config
 
+
 # =============================================================================
 # Logging
 # =============================================================================
@@ -193,7 +194,8 @@ def data_excel2vr_excel(
     DE_HEADER_ROW    = 1
 
     # --- Configurazione colonne vr-excel ---
-    VR_COL_ID         = "B" # prima era B
+    VR_COL_ID         = "B" #dove inserire l'ID
+    VR_COL_LASTROW_SEARCH = "B" # parametro di ricerca di riga vuota
     VR_COLS_300       = ["Q", "W", "AA", "AE", "AI", "AM"]
     VR_FORMULA_COLS   = ["M", "N", "O", "P"]
     VR_NTRACK_MAP     = {
@@ -256,8 +258,8 @@ def data_excel2vr_excel(
     ws_vr = wb_vr[nome_foglio]
 
     # Trova l'ultima riga occupata in colonna B (per sapere dove inserire)
-    last_row_b = find_last_row(ws_vr, "F")
-    log.info("Ultima riga occupata in colonna B del foglio '%s': %d", nome_foglio, last_row_b)
+    last_row_b = find_last_row(ws_vr, VR_COL_LASTROW_SEARCH)
+    log.info(f"Ultima riga occupata in colonna {VR_COL_LASTROW_SEARCH} del foglio {nome_foglio}: {last_row_b}")
 
     # Individua riga template per le formule (ultima riga con dati in col B)
     template_row = last_row_b
@@ -278,6 +280,10 @@ def data_excel2vr_excel(
 
         # Colonna B: ID con pedice revisione
         ws_vr.cell(row=new_row, column=col(VR_COL_ID)).value = id_with_rev
+
+        # Inserimento data misure e. compito
+        ws_vr.cell(row=new_row, column=col("G")).value = data_misure
+        ws_vr.cell(row=new_row, column=col("H")).value = config.STRATEGIA
 
         # Colonne con valore fisso 300
         for c_letter in VR_COLS_300:
