@@ -3,6 +3,17 @@
 # Modifica qui tutti i parametri prima di eseguire lo script.
 # =============================================================================
 
+
+# -----------------------------------------------------------------------------
+# Controllo flusso
+# -----------------------------------------------------------------------------
+
+# Se True, salta la fase di copia dati (orchestrazione_copia_incolla) e
+# parte direttamente dal punto dopo la pausa (ricarica → nascondi → esporta PDF).
+# Utile quando il file vr-excel è già stato modificato manualmente e
+# si vuole solo rieseguire la parte di export.
+SKIP_TO_POST_PAUSA = True
+
 # -----------------------------------------------------------------------------
 # Percorsi (path)
 # -----------------------------------------------------------------------------
@@ -39,12 +50,4 @@ NOME_VR_EXCEL_OUT = "vr_out.xlsx"
 # Nome del PDF del foglio Tab-Mis
 NOME_PDF_TABELLA_MISURE = "Tabella_Misure.pdf"
 
-# -----------------------------------------------------------------------------
-# Controllo flusso
-# -----------------------------------------------------------------------------
 
-# Se True, salta la fase di copia dati (orchestrazione_copia_incolla) e
-# parte direttamente dal punto dopo la pausa (ricarica → nascondi → esporta PDF).
-# Utile quando il file vr-excel è già stato modificato manualmente e
-# si vuole solo rieseguire la parte di export.
-SKIP_TO_POST_PAUSA = False
