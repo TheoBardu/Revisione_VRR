@@ -16,6 +16,7 @@ import shutil
 import logging
 import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
 
 import openpyxl
@@ -102,6 +103,57 @@ def get_schede_sheets(wb) -> list:
     return sheets
 
 
+def _read_custom_palette(wb_path: str) -> list:
+    """Legge la palette indexedColors da styles.xml del file XLSX."""
+    with zipfile.ZipFile(wb_path, 'r') as z:
+        with z.open("xl/styles.xml") as f:
+            content = f.read().decode('utf-8')
+    match = re.search(r'<indexedColors>(.*?)</indexedColors>', content, re.DOTALL)
+    if not match:
+        return []
+    return re.findall(r'rgb="([^"]+)"', match.group(0))
+
+
+def _resolve_indexed_colors(wb, sheet_name: str, palette: list) -> None:
+    """Converte colori indexed in RGB espliciti nel foglio dato, per export PDF corretto."""
+    from openpyxl.styles import PatternFill, Border, Side
+    from openpyxl.styles.colors import Color
+
+    def indexed_to_rgb(idx: int) -> str:
+        if 0 <= idx < len(palette):
+            raw = palette[idx]      # es. "ffaaaaaa" – alpha già opaca
+            return "FF" + raw[2:]   # garantisce alpha=FF
+        return "FF000000"
+
+    def resolve_color(color):
+        if color is not None and hasattr(color, 'type') and color.type == "indexed":
+            return Color(rgb=indexed_to_rgb(color.indexed))
+        return color
+
+    ws = wb[sheet_name]
+    for row in ws.iter_rows():
+        for cell in row:
+            fill = cell.fill
+            if fill and fill.fill_type and fill.fill_type != "none":
+                fg = resolve_color(fill.fgColor)
+                bg = resolve_color(fill.bgColor)
+                if fg is not fill.fgColor or bg is not fill.bgColor:
+                    cell.fill = PatternFill(fill_type=fill.fill_type, fgColor=fg, bgColor=bg)
+            border = cell.border
+            new_sides = {}
+            changed = False
+            for side_name in ('left', 'right', 'top', 'bottom'):
+                side = getattr(border, side_name)
+                if side.border_style and side.color and side.color.type == "indexed":
+                    new_sides[side_name] = Side(border_style=side.border_style,
+                                                color=resolve_color(side.color))
+                    changed = True
+                else:
+                    new_sides[side_name] = side
+            if changed:
+                cell.border = Border(**new_sides)
+
+
 def export_sheet_to_pdf(wb_path: str, sheet_name: str, output_pdf_path: str):
     """
     Esporta un singolo foglio in PDF tramite LibreOffice CLI.
@@ -124,6 +176,10 @@ def export_sheet_to_pdf(wb_path: str, sheet_name: str, output_pdf_path: str):
         wb_temp = openpyxl.load_workbook(wb_path)
         for ws in wb_temp.worksheets:
             ws.sheet_state = "visible" if ws.title == sheet_name else "hidden"
+
+        palette = _read_custom_palette(wb_path)
+        if palette:
+            _resolve_indexed_colors(wb_temp, sheet_name, palette)
 
         wb_temp.save(tmp_xlsx)
 

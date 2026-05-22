@@ -28,7 +28,7 @@ DATA_MISURE = "21-mag-26"
 STRATEGIA = "Compito"
 
 # Colonna di partenza per la copia delle formule dalla riga precedente
-CP_FROM_CLM = "BP"
+CP_FROM_CLM = "AQ"
 # -----------------------------------------------------------------------------
 # Nomi file output
 # -----------------------------------------------------------------------------
