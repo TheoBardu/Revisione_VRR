@@ -56,7 +56,7 @@ def find_last_row(ws, col_letter: str) -> int:
     col_idx = col(col_letter)
     last_row = 0
     for row_num in range(ws.max_row, 0, -1):
-        if ws.cell(row=row_num, column=col_idx).value == "":
+        if ws.cell(row=row_num, column=col_idx).value is not None:
             last_row = row_num
             break
     return last_row
@@ -187,7 +187,7 @@ def data_excel2vr_excel(
     DE_HEADER_ROW    = 1
 
     # --- Configurazione colonne vr-excel ---
-    VR_COL_ID         = "M" # prima era B
+    VR_COL_ID         = "B" # prima era B
     VR_COLS_300       = ["Q", "W", "AA", "AE", "AI", "AM"]
     VR_FORMULA_COLS   = ["M", "N", "O", "P"]
     VR_NTRACK_MAP     = {
@@ -246,7 +246,7 @@ def data_excel2vr_excel(
     ws_vr = wb_vr[nome_foglio]
 
     # Trova l'ultima riga occupata in colonna B (per sapere dove inserire)
-    last_row_b = find_last_row(ws_vr, VR_COL_ID)
+    last_row_b = find_last_row(ws_vr, "F")
     log.info("Ultima riga occupata in colonna B del foglio '%s': %d", nome_foglio, last_row_b)
 
     # Individua riga template per le formule (ultima riga con dati in col B)
