@@ -56,7 +56,7 @@ def find_last_row(ws, col_letter: str) -> int:
     col_idx = col(col_letter)
     last_row = 0
     for row_num in range(ws.max_row, 0, -1):
-        if ws.cell(row=row_num, column=col_idx).value is not None:
+        if ws.cell(row=row_num, column=col_idx).value == "":
             last_row = row_num
             break
     return last_row
