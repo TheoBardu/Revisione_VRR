@@ -52,14 +52,14 @@ def col(letter: str) -> int:
 
 
 def find_last_row(ws, col_letter: str) -> int:
-    """Ritorna l'ultimo numero di riga non vuota nella colonna specificata."""
+    """
+    Ritorna l'ultimo numero di riga non vuota nella colonna specificata.
+    Usa ws._cells (stato in-memory) invece di ws.max_row per evitare
+    problemi con l'attributo <dimension> stale nei file xlsx caricati.
+    """
     col_idx = col(col_letter)
-    last_row = 0
-    for row_num in range(ws.max_row, 0, -1):
-        if ws.cell(row=row_num, column=col_idx).value is not None:
-            last_row = row_num
-            break
-    return last_row
+    rows_in_col = [r for (r, c) in ws._cells if c == col_idx]
+    return max(rows_in_col) if rows_in_col else 0
 
 
 def adjust_formula_row(formula: str, row_offset: int) -> str:
@@ -159,7 +159,8 @@ def data_excel2vr_excel(
     revisione_numero: int,
     data_misure: str,
     nome_foglio: str = "Tab-Mis",
-) -> None:
+    wb_vr=None,
+) -> openpyxl.Workbook:
     """
     Legge un file data-excel (mis*.xlsx) e copia i dati nel foglio nome_foglio
     del file vr-excel secondo le specifiche del documento funzionale.
@@ -177,6 +178,11 @@ def data_excel2vr_excel(
       Track5: AJ, AK, AL
       Track6: AN, AO, AP
       Formule: M, N, O, P  (copiate dall'ultima riga template)
+
+    Se wb_vr è None il workbook viene caricato da disco e salvato alla fine.
+    Se wb_vr è già caricato (passato da orchestrazione_copia_incolla) viene
+    usato direttamente e il salvataggio è delegato al chiamante.
+    Ritorna sempre il workbook modificato.
     """
     # --- Configurazione colonne data-excel ---
     DE_COL_LETTER_ID = "B"
@@ -236,9 +242,13 @@ def data_excel2vr_excel(
     unique_ids = list(data_per_id.keys())
     log.info("ID univoci trovati nel data-excel: %s", unique_ids)
 
-    # --- Carica vr-excel (con formule) ---
-    log.debug("Caricamento vr-excel...")
-    wb_vr = openpyxl.load_workbook(path_vr_excel)
+    # --- Carica vr-excel (se non già passato dal chiamante) ---
+    _owner = wb_vr is None   # True = questa funzione ha aperto il wb e deve salvarlo
+    if _owner:
+        log.debug("Caricamento vr-excel da disco...")
+        wb_vr = openpyxl.load_workbook(path_vr_excel)
+    else:
+        log.debug("Uso workbook vr-excel già caricato in memoria.")
 
     if nome_foglio not in wb_vr.sheetnames:
         raise ValueError(f"Foglio '{nome_foglio}' non trovato nel vr-excel.")
@@ -298,9 +308,14 @@ def data_excel2vr_excel(
                 ws_vr.cell(row=new_row, column=col(formula_col)).value = adjusted
                 log.debug("  Formula col %s: '%s' → '%s'", formula_col, template_val, adjusted)
 
-    log.info("Dati inseriti. Salvataggio vr-excel in: %s", path_vr_excel)
-    wb_vr.save(path_vr_excel)
+    if _owner:
+        log.info("Dati inseriti. Salvataggio vr-excel in: %s", path_vr_excel)
+        wb_vr.save(path_vr_excel)
+    else:
+        log.debug("Dati inseriti in memoria (salvataggio delegato al chiamante).")
+
     log.info("=== data_excel2vr_excel completata ===")
+    return wb_vr
 
 
 # =============================================================================
@@ -326,16 +341,26 @@ def orchestrazione_copia_incolla(path_data_excel: str, path_vr_excel: str) -> No
 
     log.info("File trovati: %s", data_files)
 
+    # Carica il vr-excel UNA SOLA VOLTA: evita problemi con l'attributo
+    # <dimension> stale che farebbe restituire sempre lo stesso max_row
+    # a ogni ricarica dal disco dopo un salvataggio parziale.
+    log.debug("Caricamento vr-excel una sola volta: %s", path_vr_excel)
+    wb_vr = openpyxl.load_workbook(path_vr_excel)
+
     for filename in data_files:
         full_path = os.path.join(path_data_excel, filename)
         log.info("--- Elaborazione: %s ---", filename)
-        data_excel2vr_excel(
+        wb_vr = data_excel2vr_excel(
             path_data_excel=full_path,
             path_vr_excel=path_vr_excel,
             revisione_numero=config.REVISIONE_NUMERO,
             data_misure=config.DATA_MISURE,
+            wb_vr=wb_vr,
         )
 
+    # Salva il workbook una sola volta alla fine
+    log.info("Salvataggio vr-excel: %s", path_vr_excel)
+    wb_vr.save(path_vr_excel)
     log.info("=== orchestrazione_copia_incolla completata ===")
 
 
