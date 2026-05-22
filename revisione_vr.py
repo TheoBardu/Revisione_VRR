@@ -52,6 +52,15 @@ def col(letter: str) -> int:
     return column_index_from_string(letter)
 
 
+def find_last_col_in_row(ws, row: int) -> int:
+    """
+    Ritorna l'indice 1-based dell'ultima colonna non vuota nella riga specificata.
+    Usa ws._cells per evitare problemi con max_column stale.
+    """
+    cols_in_row = [c for (r, c) in ws._cells if r == row]
+    return max(cols_in_row) if cols_in_row else 0
+
+
 def find_last_row(ws, col_letter: str) -> int:
     """
     Ritorna l'ultimo numero di riga non vuota nella colonna specificata.
@@ -198,6 +207,7 @@ def data_excel2vr_excel(
     VR_COL_LASTROW_SEARCH = "B" # parametro di ricerca di riga vuota
     VR_COLS_300       = ["Q", "W", "AA", "AE", "AI", "AM"]
     VR_FORMULA_COLS   = ["M", "N", "O", "P"]
+    VR_CP_FROM_COL    = col(config.CP_FROM_CLM)
     VR_NTRACK_MAP     = {
         1: ("R",  "S",  "T"),
         2: ("X",  "Y",  "Z"),
@@ -313,6 +323,25 @@ def data_excel2vr_excel(
                 adjusted = adjust_formula_row(str(template_val), row_offset) if template_val else None
                 ws_vr.cell(row=new_row, column=col(formula_col)).value = adjusted
                 log.debug("  Formula col %s: '%s' → '%s'", formula_col, template_val, adjusted)
+
+        # Copia celle dalla riga precedente a partire da CP_FROM_CLM
+        prev_row = new_row - 1
+        last_col = find_last_col_in_row(ws_vr, prev_row)
+        if last_col >= VR_CP_FROM_COL:
+            for c_idx in range(VR_CP_FROM_COL, last_col + 1):
+                src_val = ws_vr.cell(row=prev_row, column=c_idx).value
+                if src_val is None:
+                    continue
+                adjusted = (
+                    adjust_formula_row(str(src_val), 1)
+                    if isinstance(src_val, str) and src_val.startswith("=")
+                    else src_val
+                )
+                ws_vr.cell(row=new_row, column=c_idx).value = adjusted
+            log.debug(
+                "  Celle dalla riga %d copiate in riga %d (col %s → col %s)",
+                prev_row, new_row, config.CP_FROM_CLM, get_column_letter(last_col),
+            )
 
     if _owner:
         log.info("Dati inseriti. Salvataggio vr-excel in: %s", path_vr_excel)

@@ -26,6 +26,9 @@ REVISIONE_NUMERO = 3
 # Data delle misure (stringa libera, esempio: "21-lug-25")
 DATA_MISURE = "21-mag-26"
 STRATEGIA = "Compito"
+
+# Colonna di partenza per la copia delle formule dalla riga precedente
+CP_FROM_CLM = "BP"
 # -----------------------------------------------------------------------------
 # Nomi file output
 # -----------------------------------------------------------------------------
