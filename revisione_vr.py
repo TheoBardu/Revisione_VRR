@@ -456,7 +456,108 @@ def orchestrazione_copia_incolla(path_data_excel: str, path_vr_excel: str) -> No
 
 
 # =============================================================================
-# Funzione 3 – nascondi_righe_tab_mis
+# Funzione 3 – crea_foglio_riepilogo
+# =============================================================================
+
+def crea_foglio_riepilogo(wb) -> None:
+    """
+    Crea (o ricrea) il foglio 'Riepilogo' come primo foglio del workbook,
+    popolandolo con una riga per ogni foglio 'Scheda N'.
+    """
+    from openpyxl.styles import PatternFill
+
+    HEADERS = [
+        "Gruppi Omogenei di Esposizione",
+        "Scheda Gruppo omogeneo",
+        "Parametro di riferimento",
+        "LEX,8h",
+        "Incertezza complessiva U (LEX,8h)",
+        "LEX MAX",
+        "Massimo dei PPEAK misurati",
+        "LEX,8h con attenuazione D.P.I. uditivo (**)",
+        "PPEAK con attenuazione D.P.I. uditivo",
+        "CLASSE DI RISCHIO",
+        "Esposizione a vibrazioni (*)",
+        "Esposizione a ototossici",
+        "Rumori impulsivi possibili",
+    ]
+
+    FILL_BASSA  = PatternFill(fill_type="solid", fgColor="FF66CDAA")
+    FILL_MEDIA  = PatternFill(fill_type="solid", fgColor="FF87CEEB")
+    FILL_ALTA   = PatternFill(fill_type="solid", fgColor="FFDC143C")
+
+    log.info("=== crea_foglio_riepilogo ===")
+
+    # Elimina il foglio se già esiste
+    if "Riepilogo" in wb.sheetnames:
+        del wb["Riepilogo"]
+
+    ws = wb.create_sheet("Riepilogo", 0)
+
+    # Intestazione
+    for col_idx, header in enumerate(HEADERS, start=1):
+        ws.cell(row=1, column=col_idx, value=header)
+
+    schede = get_schede_sheets(wb)
+    for row_idx, sheet_name in enumerate(schede, start=2):
+        ws_s = wb[sheet_name]
+        scheda_num = int(re.search(r"\d+", sheet_name).group())
+
+        val_f8  = ws_s["F8"].value
+        val_i44 = ws_s["I44"].value
+        val_k44 = ws_s["K44"].value
+        val_o44 = ws_s["O44"].value
+        val_o45 = ws_s["O45"].value
+
+        # H: LEX con attenuazione DPI
+        try:
+            h_val = "Previsto" if float(val_o44) > 87 else "Non previsto"
+        except (TypeError, ValueError):
+            h_val = "Non previsto"
+
+        # I: PPEAK con attenuazione DPI
+        try:
+            i_val = "Previsto" if float(val_o45) > 140 else "Non previsto"
+        except (TypeError, ValueError):
+            i_val = "Non previsto"
+
+        ws.cell(row=row_idx, column=1,  value=val_f8)
+        ws.cell(row=row_idx, column=2,  value=scheda_num)
+        ws.cell(row=row_idx, column=3,  value="LEX8h")
+        ws.cell(row=row_idx, column=4,  value=val_i44)
+        ws.cell(row=row_idx, column=5,  value=val_k44)
+        ws.cell(row=row_idx, column=6,  value=val_o44)
+        ws.cell(row=row_idx, column=7,  value=val_o45)
+        ws.cell(row=row_idx, column=8,  value=h_val)
+        ws.cell(row=row_idx, column=9,  value=i_val)
+        ws.cell(row=row_idx, column=11, value="HAV")
+        ws.cell(row=row_idx, column=12, value="NO")
+        ws.cell(row=row_idx, column=13, value="NO")
+
+        # J: classe di rischio con colore
+        cell_j = ws.cell(row=row_idx, column=10)
+        try:
+            f_num = float(val_o44)
+            if f_num < 80:
+                cell_j.value = "BASSA"
+                cell_j.fill = FILL_BASSA
+            elif f_num <= 85:
+                cell_j.value = "MEDIA"
+                cell_j.fill = FILL_MEDIA
+            else:
+                cell_j.value = "ALTA"
+                cell_j.fill = FILL_ALTA
+        except (TypeError, ValueError):
+            pass
+
+        log.debug("Riepilogo riga %d: scheda='%s'", row_idx, sheet_name)
+
+    log.info("Foglio 'Riepilogo' creato con %d righe dati.", len(schede))
+    log.info("=== crea_foglio_riepilogo completata ===")
+
+
+# =============================================================================
+# Funzione 4 – nascondi_righe_tab_mis
 # =============================================================================
 
 def nascondi_righe_tab_mis(
@@ -733,6 +834,9 @@ def orchestratore(
     # 4. Ricarica
     log.info("Ricaricamento workbook: %s", output_vr_path)
     wb = openpyxl.load_workbook(output_vr_path)
+
+    # 4bis. Crea foglio Riepilogo
+    crea_foglio_riepilogo(wb)
 
     # 5. Nascondi righe
     nascondi_righe_tab_mis(wb)
