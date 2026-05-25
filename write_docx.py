@@ -1,6 +1,7 @@
 from docxtpl import DocxTemplate
 from docxtpl import InlineImage
 from docx.shared import Mm
+import openpyxl
 
 # VARIABILI GLOBALI E COSE DA IMPORTARE ============
 documento_word_template = "/Users/theo/Desktop/P.IVA/Aziende/Ermes/Modelli/Modello_Relazione_RUM.docx"
@@ -59,20 +60,32 @@ context = {
     "descrizione_attivita_dettaglio":"boh", #dettaglio della mansione
 }
 
+# Lettura file Excel
+wb = openpyxl.load_workbook(excel_data)
+
 # Dizionari separati per le tabelle
-context_tabella_dpi = {
-    "tabella_dpi":[
-        {"codice_DPI":"",
-        "descrizione": "",
-        "marca":"",
-        "modello":"",
-        "snr":"",
-        "H":"",
-        "L":"",
-        "M":"",
-        "note":""}
-    ],
-}
+
+# Tabella DPI: foglio "DPI art.191", righe pari (2, 4, 6, ...) fino a riga vuota
+dpi_sheet = wb["DPI art.191"]
+_dpi_rows = []
+_row = 2
+while True:
+    if dpi_sheet.cell(row=_row, column=1).value is None:
+        break
+    _dpi_rows.append({
+        "codice_DPI": str(dpi_sheet.cell(row=_row, column=1).value or ""),
+        "descrizione": str(dpi_sheet.cell(row=_row, column=2).value or ""),
+        "marca":       str(dpi_sheet.cell(row=_row, column=3).value or ""),
+        "modello":     str(dpi_sheet.cell(row=_row, column=4).value or ""),
+        "snr":         str(dpi_sheet.cell(row=_row, column=5).value or ""),
+        "H":           str(dpi_sheet.cell(row=_row, column=6).value or ""),
+        "L":           str(dpi_sheet.cell(row=_row, column=7).value or ""),
+        "M":           str(dpi_sheet.cell(row=_row, column=8).value or ""),
+        "note":        "",
+    })
+    _row += 2
+
+context_tabella_dpi = {"tabella_dpi": _dpi_rows}
 
 context_tabella_orari = {
     "tabella_orario_lavoro_mansione":[
@@ -82,35 +95,50 @@ context_tabella_orari = {
     ],
 }
 
-#Pensare se farla prendere da tabella excel
-context_tabella_mansioni = {
-    "tabella_mansioni_numero_lavoratori": [
-        {
-            "ID": "",
-            "Mansione": " Nome mansione",
-            "N_lavoratori" : ""
-        }
-    ],
-}
+# Tabella mansioni: fogli "Scheda 1", "Scheda 2", ... — ID=nome foglio, Mansione=F8, N_lavoratori=1
+_mansioni_rows = []
+_n = 1
+while True:
+    _sheet_name = f"Scheda {_n}"
+    if _sheet_name not in wb.sheetnames:
+        break
+    _s = wb[_sheet_name]
+    _mansioni_rows.append({
+        "ID":           _sheet_name,
+        "Mansione":     str(_s["F8"].value or ""),
+        "N_lavoratori": 1,
+    })
+    _n += 1
 
-#pensare se prenderla dai fogli excel
-context_tabella_heg = {
-    "tabella_HEG":[
-        {"gruppo_HEG": "", #Nome del gruppo omogeneo (es: carrellista)
-        "numero_scheda":"", # Numero della scheda del gruppo omogeneo (es: 1)
-        "codice_HEG": "" ,#codice del gruppo omogeneo (es: M01)
-        "parametro_riferimento": "Lex,8h",
-        "lex8h": "",
-        "incertezza": "",
-        "lexmax":"",
-        "peakmax":"",
-        "classe_rischio": "", #es: alta, media o bassa
-        "esposizione_vibrazioni": "HAV", #WBV, HAV o NO
-        "esposizione_ototossici": "", #si no
-        "rumori_impulsivi":"", #si no
-        }
-    ],
-}
+context_tabella_mansioni = {"tabella_mansioni_numero_lavoratori": _mansioni_rows}
+
+# Tabella HEG: foglio "Riepilogo", da riga 2 fino a riga vuota — codice_HEG generato come M01, M02, ...
+_heg_sheet = wb["Riepilogo"]
+_heg_rows = []
+_row = 2
+_idx = 1
+while True:
+    if _heg_sheet.cell(row=_row, column=1).value is None:
+        break
+    _par = _heg_sheet.cell(row=_row, column=3).value
+    _heg_rows.append({
+        "gruppo_HEG":           str(_heg_sheet.cell(row=_row, column=1).value or ""),
+        "numero_scheda":        str(_heg_sheet.cell(row=_row, column=2).value or ""),
+        "codice_HEG":           f"M{_idx:02d}",
+        "parametro_riferimento": str(_par) if _par is not None else "Lex,8h",
+        "lex8h":                str(_heg_sheet.cell(row=_row, column=4).value or ""),
+        "incertezza":           str(_heg_sheet.cell(row=_row, column=5).value or ""),
+        "lexmax":               str(_heg_sheet.cell(row=_row, column=6).value or ""),
+        "peakmax":              str(_heg_sheet.cell(row=_row, column=7).value or ""),
+        "classe_rischio":       str(_heg_sheet.cell(row=_row, column=10).value or ""),
+        "esposizione_vibrazioni": str(_heg_sheet.cell(row=_row, column=11).value or ""),
+        "esposizione_ototossici": str(_heg_sheet.cell(row=_row, column=12).value or ""),
+        "rumori_impulsivi":     str(_heg_sheet.cell(row=_row, column=13).value or ""),
+    })
+    _row += 1
+    _idx += 1
+
+context_tabella_heg = {"tabella_HEG": _heg_rows}
 
 # Unione di tutti i dizionari
 context_completo = context_generalita_relazione | context | context_tabella_dpi | context_tabella_orari | context_tabella_mansioni | context_tabella_heg
