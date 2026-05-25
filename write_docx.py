@@ -6,6 +6,8 @@ from docx.shared import Mm
 documento_word_template = "/Users/theo/Desktop/P.IVA/Aziende/Ermes/Modelli/Modello_Relazione_RUM.docx"
 OUTPUT_DOCUMENT = "/Users/theo/Desktop/Modello_Relazione_RUM_modificato.docx"
 
+excel_data = ""
+
 logo_formato_relazione = "" #directory logo della relazione
 link_logo_relazione = "" #sito internet dell' logo della relazione
 nome_azienda_generalita_relazione = "ER. Engineereing"
