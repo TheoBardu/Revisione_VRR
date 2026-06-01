@@ -142,7 +142,14 @@ while True:
     _row += 1
     _idx += 1
 
-context_tabella_heg = {"tabella_HEG": _heg_rows}
+_heg_media = [heg for heg in _heg_rows if heg["classe_rischio"] == "MEDIA"]
+_heg_alta  = [heg for heg in _heg_rows if heg["classe_rischio"] == "ALTA"]
+
+context_tabella_heg = {
+    "tabella_HEG":       _heg_rows,    # invariata – usata nei cap. precedenti
+    "tabella_HEG_media": _heg_media,   # solo MEDIA → cap. 8, prima tabella
+    "tabella_HEG_alta":  _heg_alta,    # solo ALTA  → cap. 8, seconda tabella
+}
 
 # Unione di tutti i dizionari
 context_completo = context_generalita_relazione | context | context_tabella_dpi | context_tabella_orari | context_tabella_mansioni | context_tabella_heg
