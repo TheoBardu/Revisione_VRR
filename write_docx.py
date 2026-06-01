@@ -7,15 +7,15 @@ import openpyxl
 documento_word_template = "/Users/theo/Desktop/P.IVA/Aziende/Ermes/Modelli/Modello_Relazione_RUM.docx"
 OUTPUT_DOCUMENT = "/Users/theo/Desktop/Modello_Relazione_RUM_modificato.docx"
 
-excel_data = ""
+excel_data = "/Users/theo/Desktop/P.IVA/Aziende/Ermes/Lavori/Artalluminio/Rumore/rev1/output/ARTALLUMINIO_SRL_2026_r02_riepilogo.xlsx"
 
-logo_formato_relazione = "" #directory logo della relazione
+logo_formato_relazione = "/Users/theo/Desktop/P.IVA/Aziende/Ermes/Lavori/Artalluminio/Rumore/rev1/logo_confartigianato.png" #path logo della relazione
 link_logo_relazione = "" #sito internet dell' logo della relazione
-nome_azienda_generalita_relazione = "ER. Engineereing"
+nome_azienda_generalita_relazione = "Confartigianato"
 # ===============================================
 doc = DocxTemplate(documento_word_template)
 
-logo_azienda = "/Users/theo/Desktop/1631305251718.jpeg"
+logo_azienda = None
 width_logo = 50
 
 context_generalita_relazione = {
@@ -35,7 +35,7 @@ context = {
     "data_revisione": "16/03/2026",
     "data_scadenza": "16/03/2030",
     "motivo_revisione": "Aggiornamento periodico",    #da modificare
-    "img_logo_azienda" : InlineImage(doc, logo_azienda, width=Mm(width_logo)),    #da modificare
+    "img_logo_azienda" : InlineImage(doc, logo_azienda, width=Mm(width_logo)) if logo_azienda is not None else "",    #da modificare
     "datore_di_lavoro" : "",    #da modificare 
     "RSPP" : "",    #da modificare
     "medico_competente": "",    #da modificare
@@ -59,6 +59,16 @@ context = {
     "misure_attuative_effetti_indesiderati": "Nelle zone/postazioni di lavoro è possibile che gli addetti possano incorrere in tali situazioni. Si consiglia pertanto di utilizzare D.P.I. con grado di protezione SNR come prescritto dalla presente relazione e l’adozione di sistemi alternativi quali segnali oto-acustici.",
     "descrizione_attivita_dettaglio":"boh", #dettaglio della mansione
 }
+
+
+context_tabella_orari = {
+    "tabella_orario_lavoro_mansione":[
+        {"mansione": "Nome mansione", #da modificare
+        "orario_lavoro" : "Lunedì – Venerdì \n 8:00÷12:00 13:00÷17:00" #da modificare
+        }
+    ],
+}
+
 
 # Lettura file Excel
 wb = openpyxl.load_workbook(excel_data)
@@ -87,13 +97,7 @@ while True:
 
 context_tabella_dpi = {"tabella_dpi": _dpi_rows}
 
-context_tabella_orari = {
-    "tabella_orario_lavoro_mansione":[
-        {"mansione": "Nome mansione", #da modificare
-        "orario_lavoro" : "Lunedì – Venerdì \n 8:00÷12:00 13:00÷17:00" #da modificare
-        }
-    ],
-}
+
 
 # Tabella mansioni: fogli "Scheda 1", "Scheda 2", ... — ID=nome foglio, Mansione=F8, N_lavoratori=1
 _mansioni_rows = []

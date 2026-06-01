@@ -1,0 +1,5 @@
+.DS_Store
+*.log
+*.pyc
+revisione_vr.log
+vr_out.xlsx
