@@ -155,5 +155,39 @@ context_tabella_heg = {
 context_completo = context_generalita_relazione | context | context_tabella_dpi | context_tabella_orari | context_tabella_mansioni | context_tabella_heg
 
 doc.render(context_completo)
+
+
+def colora_cella(cella, colore_hex: str):
+    """
+    Colora lo sfondo di una cella.
+    colore_hex: stringa RGB senza '#', es. 'FF0000' per rosso.
+    """
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    tc = cella._tc
+    tcPr = tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"),   "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"),  colore_hex)
+    tcPr.append(shd)
+
+# Mappa colori per classe di rischio
+COLORI_RISCHIO = {
+    "BASSA": "C6EFCE",   # verde
+    "MEDIA": "FFEB9C",   # giallo
+    "ALTA":  "FFC7CE",   # rosso
+}
+
+# Itera sulle tabelle del documento renderizzato
+for tabella in doc.docx.tables:
+    for riga in tabella.rows:
+        for cella in riga.cells:
+            testo = cella.text.strip().upper()
+            if testo in COLORI_RISCHIO:
+                colora_cella(cella, COLORI_RISCHIO[testo])
+
+
 doc.save(OUTPUT_DOCUMENT)
 print('Docx scritto')
