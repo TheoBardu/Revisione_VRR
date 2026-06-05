@@ -849,17 +849,19 @@ def orchestratore(
     log.info("Workbook salvato: %s", output_vr_path)
 
     # 8. Esporta PDF Tab-Mis
-    esporta_pdf_misure(
-        wb_path=output_vr_path,
-        output_dir=pdf_dir,
-        output_name=config.NOME_PDF_TABELLA_MISURE,
-    )
-
-    # 9. Esporta PDF Schede
-    esporta_pdf_schede(
-        wb_path=output_vr_path,
-        output_dir=pdf_dir,
-    )
+    if config.SAVE_MEASURE_PDF:
+        esporta_pdf_misure(
+            wb_path=output_vr_path,
+            output_dir=pdf_dir,
+            output_name=config.NOME_PDF_TABELLA_MISURE,
+        )
+        
+    if config.SAVE_HEG_PDF:
+        # 9. Esporta PDF Schede
+        esporta_pdf_schede(
+            wb_path=output_vr_path,
+            output_dir=pdf_dir,
+        )
 
     log.info("========== ORCHESTRATORE COMPLETATO ==========")
     print(f"\nCompletato. Output in: {path_output}")

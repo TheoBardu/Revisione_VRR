@@ -13,7 +13,8 @@
 # Utile quando il file vr-excel è già stato modificato manualmente e
 # si vuole solo rieseguire la parte di export.
 SKIP_TO_POST_PAUSA = False
-
+SAVE_MEASURE_PDF = False
+SAVE_HEG_PDF = False
 # -----------------------------------------------------------------------------
 # Percorsi (path)
 # -----------------------------------------------------------------------------
