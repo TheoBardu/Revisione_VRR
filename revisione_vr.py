@@ -250,29 +250,6 @@ def data_excel2vr_excel(
     usato direttamente e il salvataggio è delegato al chiamante.
     Ritorna sempre il workbook modificato.
     """
-    # --- Configurazione colonne data-excel ---
-    DE_COL_LETTER_ID = "B"
-    DE_COL_NTRACK    = "C"
-    DE_COL_F         = "F"   # LeqA_eq
-    DE_COL_I         = "I"   # LeqC_eq
-    DE_COL_J         = "J"   # PeakC_max
-    DE_HEADER_ROW    = 1
-
-    # --- Configurazione colonne vr-excel ---
-    VR_COL_ID         = "B" #dove inserire l'ID
-    VR_COL_LASTROW_SEARCH = "B" # parametro di ricerca di riga vuota
-    VR_COLS_300       = ["Q", "W", "AA", "AE", "AI", "AM"]
-    VR_FORMULA_COLS   = ["M", "N", "O", "P"]
-    VR_CP_FROM_COL    = col(config.CP_FROM_CLM)
-    VR_NTRACK_MAP     = {
-        1: ("R",  "S",  "T"),
-        2: ("X",  "Y",  "Z"),
-        3: ("AB", "AC", "AD"),
-        4: ("AF", "AG", "AH"),
-        5: ("AJ", "AK", "AL"),
-        6: ("AN", "AO", "AP"),
-    }
-
     log.info("=== data_excel2vr_excel ===")
     log.info("data-excel: %s", path_data_excel)
     log.info("vr-excel:   %s", path_vr_excel)
@@ -285,12 +262,12 @@ def data_excel2vr_excel(
 
     # Raccogli: {letter_id: {ntrack: (leqa_eq, leqc_eq, peakc_max)}}
     data_per_id: dict[str, dict[int, tuple]] = {}
-    for row in ws_data.iter_rows(min_row=DE_HEADER_ROW + 1, values_only=True):
-        letter_id = row[col(DE_COL_LETTER_ID) - 1]
-        ntrack    = row[col(DE_COL_NTRACK) - 1]
-        f_val     = row[col(DE_COL_F) - 1]
-        i_val     = row[col(DE_COL_I) - 1]
-        j_val     = row[col(DE_COL_J) - 1]
+    for row in ws_data.iter_rows(min_row=config.DE_HEADER_ROW + 1, values_only=True):
+        letter_id = row[col(config.DE_COL_LETTER_ID) - 1]
+        ntrack    = row[col(config.DE_COL_NTRACK) - 1]
+        f_val     = row[col(config.DE_COL_F) - 1]
+        i_val     = row[col(config.DE_COL_I) - 1]
+        j_val     = row[col(config.DE_COL_J) - 1]
 
         if letter_id is None:
             continue
@@ -324,8 +301,8 @@ def data_excel2vr_excel(
     ws_vr = wb_vr[nome_foglio]
 
     # Trova l'ultima riga occupata in colonna B (per sapere dove inserire)
-    last_row_b = find_last_row(ws_vr, VR_COL_LASTROW_SEARCH)
-    log.info(f"Ultima riga occupata in colonna {VR_COL_LASTROW_SEARCH} del foglio {nome_foglio}: {last_row_b}")
+    last_row_b = find_last_row(ws_vr, config.VR_COL_LASTROW_SEARCH)
+    log.info(f"Ultima riga occupata in colonna {config.VR_COL_LASTROW_SEARCH} del foglio {nome_foglio}: {last_row_b}")
 
     # Individua riga template per le formule (ultima riga con dati in col B)
     template_row = last_row_b
@@ -345,23 +322,23 @@ def data_excel2vr_excel(
         log.debug("Inserimento riga %d: ID=%s", new_row, id_with_rev)
 
         # Colonna B: ID con pedice revisione
-        ws_vr.cell(row=new_row, column=col(VR_COL_ID)).value = id_with_rev
+        ws_vr.cell(row=new_row, column=col(config.VR_COL_ID)).value = id_with_rev
 
         # Inserimento data misure e. compito
         ws_vr.cell(row=new_row, column=col("G")).value = data_misure
         ws_vr.cell(row=new_row, column=col("H")).value = config.STRATEGIA
 
         # Colonne con valore fisso 300
-        for c_letter in VR_COLS_300:
+        for c_letter in config.VR_COLS_300:
             ws_vr.cell(row=new_row, column=col(c_letter)).value = 300
 
         # Copia valori per ogni nTrack
         ntrack_data = data_per_id[letter_id]
         for ntrack, (f_val, i_val, j_val) in ntrack_data.items():
-            if ntrack not in VR_NTRACK_MAP:
+            if ntrack not in config.VR_NTRACK_MAP:
                 log.warning("nTrack=%d non mappato per ID=%s, ignorato.", ntrack, letter_id)
                 continue
-            col_f_target, col_i_target, col_j_target = VR_NTRACK_MAP[ntrack]
+            col_f_target, col_i_target, col_j_target = config.VR_NTRACK_MAP[ntrack]
             ws_vr.cell(row=new_row, column=col(col_f_target)).value = f_val
             ws_vr.cell(row=new_row, column=col(col_i_target)).value = i_val
             ws_vr.cell(row=new_row, column=col(col_j_target)).value = j_val
@@ -373,7 +350,7 @@ def data_excel2vr_excel(
         # Copia formule da riga template (M, N, O, P)
         if template_row is not None:
             row_offset = new_row - template_row
-            for formula_col in VR_FORMULA_COLS:
+            for formula_col in config.VR_FORMULA_COLS:
                 template_cell = ws_vr.cell(row=template_row, column=col(formula_col))
                 template_val  = template_cell.value
                 adjusted = adjust_formula_row(str(template_val), row_offset) if template_val else None
@@ -383,8 +360,8 @@ def data_excel2vr_excel(
         # Copia celle dalla riga precedente a partire da CP_FROM_CLM
         prev_row = new_row - 1
         last_col = find_last_col_in_row(ws_vr, prev_row)
-        if last_col >= VR_CP_FROM_COL:
-            for c_idx in range(VR_CP_FROM_COL, last_col + 1):
+        if last_col >= col(config.VR_CP_FROM_COL):
+            for c_idx in range(col(config.VR_CP_FROM_COL), last_col + 1):
                 src_val = ws_vr.cell(row=prev_row, column=c_idx).value
                 if src_val is None:
                     continue
