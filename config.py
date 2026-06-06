@@ -39,8 +39,6 @@ REVISIONE_NUMERO = 2
 DATA_MISURE = "26-feb-26"
 STRATEGIA = "Compito"
 
-# Colonna di partenza per la copia delle formule dalla riga precedente
-CP_FROM_CLM = "AQ"
 # -----------------------------------------------------------------------------
 # Nomi file output
 # -----------------------------------------------------------------------------
@@ -74,29 +72,37 @@ DE_COL_J = "J"
 # Riga di intestazione nel data-excel (i dati iniziano dalla riga successiva)
 DE_HEADER_ROW = 1
 
-# Colonna del foglio Tab-Mis in cui scrivere l'ID del lavoratore (con pedice revisione)
-VR_COL_ID = "B"
+# -----------------------------------------------------------------------------
+# EXCEL_TAB-MIS – Ricerca colonne del foglio Tab-Mis per stringa di intestazione
+# Il codice legge la riga VR_HEADER_ROW e trova le colonne cercando queste stringhe.
+# Aggiornare le stringhe se le intestazioni nel file Excel dovessero cambiare.
+# -----------------------------------------------------------------------------
 
-# Colonna usata per individuare l'ultima riga occupata nel foglio Tab-Mis
-VR_COL_LASTROW_SEARCH = "B"
+# Riga di intestazione del foglio Tab-Mis (dove ci sono i nomi delle colonne)
+VR_HEADER_ROW = 3
 
-# Colonne del foglio Tab-Mis in cui inserire il valore fisso 300 (durata massima traccia)
-VR_COLS_300 = ["Q", "W", "AA", "AE", "AI", "AM"]
+# Stringa da cercare nell'intestazione per trovare la colonna dell'ID lavoratore
+VR_ID_STR = "ID"
 
-# Colonne del foglio Tab-Mis che contengono le formule da copiare dalla riga template
-VR_FORMULA_COLS = ["M", "N", "O", "P"]
+# Stringa da cercare per trovare le colonne con valore fisso 300 (durata massima traccia)
+# Tutte le colonne il cui header contiene questa stringa riceveranno il valore 300
+VR_300_STR = "Sec."
 
-# Colonna di partenza (lettera) per la copia delle celle dalla riga precedente nel foglio Tab-Mis
-VR_CP_FROM_COL = "AQ"
+# Stringhe da cercare per trovare le colonne delle formule da copiare dalla riga template
+# Un elemento per ogni colonna formula (nell'ordine in cui compaiono nel foglio)
+VR_FORMULA_STRS = [
+    "LAeq,T ",     # da verificare con l'intestazione reale del foglio Tab-Mis
+    "LCeq,T",     # da verificare con l'intestazione reale del foglio Tab-Mis
+    "Lpicco,C", # da verificare con l'intestazione reale del foglio Tab-Mis
+    "LCEQ,TP",
+    "LAEQ,Tp"
+]
 
-# Mappa nTrack → (colonna LeqA_eq, colonna LeqC_eq, colonna PeakC_max) nel foglio Tab-Mis
-VR_NTRACK_MAP = {
-    1: ("R",  "S",  "T"),
-    2: ("X",  "Y",  "Z"),
-    3: ("AB", "AC", "AD"),
-    4: ("AF", "AG", "AH"),
-    5: ("AJ", "AK", "AL"),
-    6: ("AN", "AO", "AP"),
-}
+# Stringhe da cercare per trovare le colonne di misurazione per ogni traccia.
+# Ogni stringa può comparire più volte nell'intestazione (una per ogni traccia);
+# le occorrenze vengono abbinate in ordine per costruire la mappa nTrack → colonne.
+VR_LEQA_STR  = "LAeq,T"   # colonne LeqA_eq  (es. R, X, AB, AF, AJ, AN)
+VR_LEQC_STR  = "LCeq,T"   # colonne LeqC_eq  (es. S, Y, AC, AG, AK, AO)
+VR_PEAK_STR  = "Lpicco,C"  # colonne PeakC_max (es. T, Z, AD, AH, AL, AP)
 
 

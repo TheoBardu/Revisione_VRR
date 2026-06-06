@@ -53,6 +53,87 @@ def col(letter: str) -> int:
     return column_index_from_string(letter)
 
 
+def find_col_by_header(ws, header_row: int, search_str: str) -> int:
+    """
+    Cerca nella riga header_row la prima cella il cui valore contiene search_str
+    (ricerca case-insensitive per sottostringa).
+    Ritorna l'indice di colonna 1-based; solleva ValueError se non trovato.
+    """
+    needle = search_str.lower()
+    for cell in ws[header_row]:
+        if cell.value is not None and needle in str(cell.value).lower():
+            return cell.column
+    raise ValueError(
+        f"Intestazione \"{search_str}\" non trovata nella riga {header_row} "
+        f"del foglio \"{ws.title}\". Verificare VR_*_STR in config.py."
+    )
+
+
+def find_all_cols_by_header(ws, header_row: int, search_str: str) -> list:
+    """
+    Ritorna la lista (in ordine di colonna) di tutti gli indici 1-based
+    le cui intestazioni contengono search_str (case-insensitive).
+    """
+    needle = search_str.lower()
+    return [
+        cell.column
+        for cell in ws[header_row]
+        if cell.value is not None and needle in str(cell.value).lower()
+    ]
+
+
+def resolve_vr_columns(ws_vr) -> dict:
+    """
+    Legge la riga di intestazione del foglio Tab-Mis e risolve tutti gli indici
+    di colonna necessari, costruendo anche la mappa nTrack → (leqA, leqC, peak).
+    Ritorna un dict con chiavi: 'id', 'cols_300', 'formula_cols', 'ntrack_map', 'cp_from'.
+    """
+    hr = config.VR_HEADER_ROW
+
+    id_col      = find_col_by_header(ws_vr, hr, config.VR_ID_STR)
+    cols_300    = find_all_cols_by_header(ws_vr, hr, config.VR_300_STR)
+    formula_cols = [find_col_by_header(ws_vr, hr, s) for s in config.VR_FORMULA_STRS]
+
+    leqa_cols = find_all_cols_by_header(ws_vr, hr, config.VR_LEQA_STR)
+    leqc_cols = find_all_cols_by_header(ws_vr, hr, config.VR_LEQC_STR)
+    peak_cols = find_all_cols_by_header(ws_vr, hr, config.VR_PEAK_STR)
+
+    if not leqa_cols:
+        raise ValueError(
+            f"Nessuna colonna trovata per VR_LEQA_STR=\"{config.VR_LEQA_STR}\" "
+            f"nel foglio \"{ws_vr.title}\". Verificare VR_LEQA_STR in config.py."
+        )
+    if len(leqa_cols) != len(leqc_cols) or len(leqa_cols) != len(peak_cols):
+        raise ValueError(
+            f"Numero di colonne non coincidente: LeqA={len(leqa_cols)}, "
+            f"LeqC={len(leqc_cols)}, Peak={len(peak_cols)}. "
+            "Verificare VR_LEQA_STR, VR_LEQC_STR, VR_PEAK_STR in config.py."
+        )
+
+    ntrack_map = {
+        i: (a, c, p)
+        for i, (a, c, p) in enumerate(zip(leqa_cols, leqc_cols, peak_cols), 1)
+    }
+    cp_from = max(leqa_cols + leqc_cols + peak_cols) + 1
+
+    log.info(
+        "Colonne VR risolte – ID:%s | 300:%s | formule:%s | ntrack_map:%s | cp_from:%s",
+        get_column_letter(id_col),
+        [get_column_letter(c) for c in cols_300],
+        [get_column_letter(c) for c in formula_cols],
+        {k: tuple(get_column_letter(x) for x in v) for k, v in ntrack_map.items()},
+        get_column_letter(cp_from),
+    )
+
+    return {
+        'id':           id_col,
+        'cols_300':     cols_300,
+        'formula_cols': formula_cols,
+        'ntrack_map':   ntrack_map,
+        'cp_from':      cp_from,
+    }
+
+
 def find_last_col_in_row(ws, row: int) -> int:
     """
     Ritorna l'indice 1-based dell'ultima colonna non vuota nella riga specificata.
@@ -300,9 +381,12 @@ def data_excel2vr_excel(
 
     ws_vr = wb_vr[nome_foglio]
 
-    # Trova l'ultima riga occupata in colonna B (per sapere dove inserire)
-    last_row_b = find_last_row(ws_vr, config.VR_COL_LASTROW_SEARCH)
-    log.info(f"Ultima riga occupata in colonna {config.VR_COL_LASTROW_SEARCH} del foglio {nome_foglio}: {last_row_b}")
+    # Risolve gli indici di colonna leggendo la riga di intestazione del foglio
+    vr_cols = resolve_vr_columns(ws_vr)
+
+    # Trova l'ultima riga occupata nella colonna ID (per sapere dove inserire)
+    last_row_b = find_last_row(ws_vr, get_column_letter(vr_cols['id']))
+    log.info(f"Ultima riga occupata in colonna {get_column_letter(vr_cols['id'])} del foglio {nome_foglio}: {last_row_b}")
 
     # Individua riga template per le formule (ultima riga con dati in col B)
     template_row = last_row_b
@@ -321,47 +405,50 @@ def data_excel2vr_excel(
         id_with_rev = f"{letter_id}_{revisione_numero}"
         log.debug("Inserimento riga %d: ID=%s", new_row, id_with_rev)
 
-        # Colonna B: ID con pedice revisione
-        ws_vr.cell(row=new_row, column=col(config.VR_COL_ID)).value = id_with_rev
+        # Colonna ID: ID con pedice revisione
+        ws_vr.cell(row=new_row, column=vr_cols['id']).value = id_with_rev
 
         # Inserimento data misure e. compito
         ws_vr.cell(row=new_row, column=col("G")).value = data_misure
         ws_vr.cell(row=new_row, column=col("H")).value = config.STRATEGIA
 
         # Colonne con valore fisso 300
-        for c_letter in config.VR_COLS_300:
-            ws_vr.cell(row=new_row, column=col(c_letter)).value = 300
+        for c_idx in vr_cols['cols_300']:
+            ws_vr.cell(row=new_row, column=c_idx).value = 300
 
         # Copia valori per ogni nTrack
         ntrack_data = data_per_id[letter_id]
         for ntrack, (f_val, i_val, j_val) in ntrack_data.items():
-            if ntrack not in config.VR_NTRACK_MAP:
+            if ntrack not in vr_cols['ntrack_map']:
                 log.warning("nTrack=%d non mappato per ID=%s, ignorato.", ntrack, letter_id)
                 continue
-            col_f_target, col_i_target, col_j_target = config.VR_NTRACK_MAP[ntrack]
-            ws_vr.cell(row=new_row, column=col(col_f_target)).value = f_val
-            ws_vr.cell(row=new_row, column=col(col_i_target)).value = i_val
-            ws_vr.cell(row=new_row, column=col(col_j_target)).value = j_val
+            fi, ci, pi = vr_cols['ntrack_map'][ntrack]
+            ws_vr.cell(row=new_row, column=fi).value = f_val
+            ws_vr.cell(row=new_row, column=ci).value = i_val
+            ws_vr.cell(row=new_row, column=pi).value = j_val
             log.debug(
                 "  nTrack=%d → %s=%s, %s=%s, %s=%s",
-                ntrack, col_f_target, f_val, col_i_target, i_val, col_j_target, j_val,
+                ntrack,
+                get_column_letter(fi), f_val,
+                get_column_letter(ci), i_val,
+                get_column_letter(pi), j_val,
             )
 
-        # Copia formule da riga template (M, N, O, P)
+        # Copia formule da riga template
         if template_row is not None:
             row_offset = new_row - template_row
-            for formula_col in config.VR_FORMULA_COLS:
-                template_cell = ws_vr.cell(row=template_row, column=col(formula_col))
+            for fc_idx in vr_cols['formula_cols']:
+                template_cell = ws_vr.cell(row=template_row, column=fc_idx)
                 template_val  = template_cell.value
                 adjusted = adjust_formula_row(str(template_val), row_offset) if template_val else None
-                ws_vr.cell(row=new_row, column=col(formula_col)).value = adjusted
-                log.debug("  Formula col %s: '%s' → '%s'", formula_col, template_val, adjusted)
+                ws_vr.cell(row=new_row, column=fc_idx).value = adjusted
+                log.debug("  Formula col %s: '%s' → '%s'", get_column_letter(fc_idx), template_val, adjusted)
 
-        # Copia celle dalla riga precedente a partire da CP_FROM_CLM
+        # Copia celle dalla riga precedente a partire dalla colonna successiva all'ultima misurazione
         prev_row = new_row - 1
         last_col = find_last_col_in_row(ws_vr, prev_row)
-        if last_col >= col(config.VR_CP_FROM_COL):
-            for c_idx in range(col(config.VR_CP_FROM_COL), last_col + 1):
+        if last_col >= vr_cols['cp_from']:
+            for c_idx in range(vr_cols['cp_from'], last_col + 1):
                 src_val = ws_vr.cell(row=prev_row, column=c_idx).value
                 if src_val is None:
                     continue
@@ -373,7 +460,7 @@ def data_excel2vr_excel(
                 ws_vr.cell(row=new_row, column=c_idx).value = adjusted
             log.debug(
                 "  Celle dalla riga %d copiate in riga %d (col %s → col %s)",
-                prev_row, new_row, config.CP_FROM_CLM, get_column_letter(last_col),
+                prev_row, new_row, get_column_letter(vr_cols['cp_from']), get_column_letter(last_col),
             )
 
     if _owner:
